@@ -1,29 +1,32 @@
 // --- STATE & CONFIG ---
-const TOTAL_BOUQUETS = 33; 
+const TOTAL_BOUQUETS = 25; 
 let currentSelection = 1;
 let selectedFont = 'Alex Brush'; 
 let selectedTheme = 'ivory';
 
 // --- INITIALIZATION ---
 window.onload = () => {
-    loadDraft(); // Restore any unsaved typing
+    loadDraft(); 
     
     // Character counter setup
-    document.getElementById('custom-message').addEventListener('input', function() {
-        document.getElementById('char-count').innerText = `${this.value.length}/300`;
-    });
+    const customMessageInput = document.getElementById('custom-message');
+    if (customMessageInput) {
+        customMessageInput.addEventListener('input', function() {
+            document.getElementById('char-count').innerText = `${this.value.length}/300`;
+        });
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const data = urlParams.get('b');
     
     if (data) {
         document.getElementById('edit-mode').style.display = 'none';
-        document.getElementById('loading-screen').classList.remove('hidden'); // Show preloader
+        document.getElementById('loading-screen').classList.remove('hidden'); 
         
         try {
             const decodedStr = decodeURIComponent(atob(data));
             const payload = JSON.parse(decodedStr);
-            preloadImageAndRender(payload); // Ensures art exists before showing envelope
+            preloadImageAndRender(payload); 
         } catch(e) {
             alert("Oops! This bouquet link seems to be broken.");
         }
@@ -79,7 +82,7 @@ function validateAndProceed() {
 
 // --- CAROUSEL & THEMES ---
 function updateCarousel() {
-    document.getElementById('current-bouquet-img').src = `assets/${currentSelection}.png`;
+    document.getElementById('current-bouquet-img').src = `assets/${currentSelection}.jpg`;
     document.getElementById('bouquet-counter').innerText = currentSelection;
 }
 function nextBouquet() { currentSelection++; if (currentSelection > TOTAL_BOUQUETS) currentSelection = 1; updateCarousel(); }
@@ -100,7 +103,7 @@ function changeTheme(btnElement, themeName) {
     document.body.className = `theme-${themeName}`;
 }
 
-// --- SHARING LOGIC (SAFE CLIPBOARD API) ---
+// --- SHARING LOGIC ---
 function generateLink() {
     const msg = document.getElementById('custom-message').value;
     const sig = document.getElementById('sender-name').value;
@@ -108,7 +111,6 @@ function generateLink() {
     
     const payload = { i: currentSelection, m: msg, f: selectedFont, s: sig, t: selectedTheme, r: rec };
     
-    // Limits applied in HTML ensure URL never explodes
     const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
     const link = `${window.location.origin}${window.location.pathname}?b=${encoded}`;
     
@@ -120,14 +122,12 @@ function copyLink() {
     const linkInput = document.getElementById('share-link').value;
     const copyBtn = document.querySelector('.copy-btn');
 
-    // Modern Secure Clipboard API Fallback
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(linkInput).then(() => {
             copyBtn.innerText = 'Copied!';
             setTimeout(() => { copyBtn.innerText = 'Copy Link'; }, 2000);
         });
     } else {
-        // Fallback for older browsers
         const textArea = document.createElement("textarea");
         textArea.value = linkInput;
         document.body.appendChild(textArea);
@@ -139,11 +139,10 @@ function copyLink() {
     }
 }
 
-// --- RECIPIENT VIEW & PRELOADER ---
+// --- RECIPIENT VIEW, PRELOADER & TEXT SCALING ---
 function preloadImageAndRender(payload) {
     const img = new Image();
     img.onload = () => {
-        // Image downloaded! Now render the UI.
         document.getElementById('loading-screen').classList.add('hidden');
         document.getElementById('envelope-screen').classList.remove('hidden');
         renderShared(payload);
@@ -151,7 +150,7 @@ function preloadImageAndRender(payload) {
     img.onerror = () => {
         alert("Could not load the bouquet image.");
     };
-    img.src = `assets/${payload.i}.png`;
+    img.src = `assets/${payload.i}.jpg`;
 }
 
 function previewCard() {
@@ -175,7 +174,7 @@ function closePreview() {
 }
 
 function renderShared(payload) {
-    document.getElementById('shared-bouquet-img').src = `assets/${payload.i}.png`;
+    document.getElementById('shared-bouquet-img').src = `assets/${payload.i}.jpg`;
     if (payload.t) document.body.className = `theme-${payload.t}`;
     
     document.getElementById('envelope-name').innerText = payload.r || "Someone Special";
@@ -188,7 +187,38 @@ function renderShared(payload) {
         msgElement.style.fontFamily = `'${fontName}', ${isSerif}`;
     }
     
-    document.getElementById('shared-signature').innerText = payload.s ? payload.s : "";
+    const sigElement = document.getElementById('shared-signature');
+    sigElement.innerText = payload.s ? payload.s : "";
+    
+    // Call the Auto-Scaler
+    setTimeout(autoScaleText, 50);
+}
+
+// --- THE PICSART AUTO-SCALER ALGORITHM ---
+function autoScaleText() {
+    const overlayBox = document.getElementById('text-overlay-box');
+    const msgEl = document.getElementById('shared-message');
+    const sigEl = document.getElementById('shared-signature');
+    
+    if (!overlayBox || !msgEl) return;
+
+    let fontSize = 1.6; // Start smaller for that clean, stamped look
+    msgEl.style.fontSize = fontSize + 'rem';
+    
+    if (sigEl.innerText !== "") {
+        sigEl.style.fontSize = (fontSize * 0.7) + 'rem';
+        sigEl.style.marginTop = '8px';
+    }
+    
+    let attempts = 0; 
+
+    // Shrink gracefully until the text + signature fits perfectly within the wrapper overlay
+    while (overlayBox.scrollHeight > overlayBox.clientHeight && fontSize > 0.6 && attempts < 50) {
+        fontSize -= 0.05; 
+        msgEl.style.fontSize = fontSize + 'rem';
+        if (sigEl.innerText !== "") sigEl.style.fontSize = (fontSize * 0.7) + 'rem';
+        attempts++;
+    }
 }
 
 function openEnvelope() {
@@ -201,7 +231,6 @@ function openEnvelope() {
         envelope.style.opacity = '1'; 
         viewMode.classList.remove('hidden');
         
-        // Show Accessibility Skip Button
         document.getElementById('skip-scratch-btn').classList.remove('hidden');
         
         const oldCanvas = document.getElementById('scratch-card');
@@ -217,8 +246,8 @@ function openEnvelope() {
     }, 800);
 }
 
-// --- THE SCRATCH ENGINE (PRO VERSION) ---
-let globalCheckReveal; // Exposed for the skip button
+// --- THE SCRATCH ENGINE (THROTTLED PRO VERSION) ---
+let globalCheckReveal; 
 
 function forceReveal() {
     if (globalCheckReveal) globalCheckReveal(true);
@@ -258,7 +287,6 @@ function initScratchCard(container) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // Fixes the window resizing coordinate bug by locking dimensions
     const rect = container.getBoundingClientRect();
     canvas.width = rect.width;
     canvas.height = rect.height;
@@ -272,7 +300,8 @@ function initScratchCard(container) {
 
     let isDrawing = false;
     let isRevealed = false;
-    const brushRadius = 50; 
+    let lastCheckTime = 0; 
+    const brushRadius = 65; 
 
     function getCoordinates(e) {
         const bounds = canvas.getBoundingClientRect();
@@ -285,7 +314,6 @@ function initScratchCard(container) {
         if (!isDrawing || isRevealed) return;
         if (e.cancelable) e.preventDefault(); 
         
-        // HAPTIC FEEDBACK (Vibrates subtly while scratching on mobile)
         if (navigator.vibrate) { navigator.vibrate(5); }
 
         const { x, y } = getCoordinates(e);
@@ -293,7 +321,13 @@ function initScratchCard(container) {
         ctx.beginPath();
         ctx.arc(x, y, brushRadius, 0, Math.PI * 2);
         ctx.fill();
-        checkReveal(false);
+        
+        // Performance Throttle
+        const now = Date.now();
+        if (now - lastCheckTime > 150) {
+            checkReveal(false);
+            lastCheckTime = now;
+        }
     }
 
     globalCheckReveal = checkReveal;
@@ -308,12 +342,11 @@ function initScratchCard(container) {
             const pixels = imageData.data;
             let clearPixels = 0;
             
-            // ANTI-ALIASING FIX: Checks for "mostly transparent" (< 50 opacity) instead of pure 0
             for (let i = 3; i < pixels.length; i += 4) { if (pixels[i] < 50) clearPixels++; }
             clearedPercentage = (clearPixels / (pixels.length / 4)) * 100;
         }
 
-        if (clearedPercentage > 40 || force) {
+        if (clearedPercentage > 35 || force) {
             isRevealed = true;
             canvas.style.transition = "opacity 1.2s ease";
             canvas.style.opacity = "0";
@@ -325,11 +358,18 @@ function initScratchCard(container) {
         }
     }
 
+    function stopScratch() {
+        if(isDrawing) {
+            isDrawing = false;
+            checkReveal(false);
+        }
+    }
+
     canvas.addEventListener('mousedown', (e) => { isDrawing = true; scratch(e); });
     canvas.addEventListener('mousemove', scratch);
-    canvas.addEventListener('mouseup', () => isDrawing = false);
-    canvas.addEventListener('mouseleave', () => isDrawing = false);
+    canvas.addEventListener('mouseup', stopScratch);
+    canvas.addEventListener('mouseleave', stopScratch);
     canvas.addEventListener('touchstart', (e) => { isDrawing = true; scratch(e); }, { passive: false });
     canvas.addEventListener('touchmove', scratch, { passive: false });
-    canvas.addEventListener('touchend', () => isDrawing = false);
+    canvas.addEventListener('touchend', stopScratch);
 }
