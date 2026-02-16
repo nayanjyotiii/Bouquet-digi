@@ -1,14 +1,28 @@
+// --- FIREBASE CONFIGURATION (REALTIME DB) ---
+const firebaseConfig = {
+    apiKey: "AIzaSyDa2YAkgDSAW3CtYswRKrnt6e01g6PlGZw",
+    authDomain: "nayanarchive-854cc.firebaseapp.com",
+    databaseURL: "https://nayanarchive-854cc-default-rtdb.firebaseio.com",
+    projectId: "nayanarchive-854cc",
+    storageBucket: "nayanarchive-854cc.firebasestorage.app",
+    messagingSenderId: "2058736416",
+    appId: "1:2058736416:web:afcdf732ced703d78a7d45"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database(); // Changed to Realtime Database
+
 // --- STATE & CONFIG ---
-const TOTAL_BOUQUETS = 33; 
+const TOTAL_BOUQUETS = 25; 
 let currentSelection = 1;
 let selectedFont = 'Alex Brush'; 
 let selectedTheme = 'ivory';
 
-// --- INITIALIZATION ---
-window.onload = () => {
+// --- INITIALIZATION (LOADS FROM CLOUD) ---
+window.onload = async () => {
     loadDraft(); 
     
-    // Character counter setup
     const customMessageInput = document.getElementById('custom-message');
     if (customMessageInput) {
         customMessageInput.addEventListener('input', function() {
@@ -17,18 +31,29 @@ window.onload = () => {
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const data = urlParams.get('b');
+    const docId = urlParams.get('id'); 
     
-    if (data) {
+    if (docId) {
         document.getElementById('edit-mode').style.display = 'none';
         document.getElementById('loading-screen').classList.remove('hidden'); 
         
         try {
-            const decodedStr = decodeURIComponent(atob(data));
-            const payload = JSON.parse(decodedStr);
-            preloadImageAndRender(payload); 
+            // Fetch from Realtime Database
+            const snapshot = await db.ref("bouquets/" + docId).get();
+            
+            if (snapshot.exists()) {
+                const payload = snapshot.val();
+                preloadImageAndRender(payload); 
+            } else {
+                alert("Oops! This bouquet envelope couldn't be found in the cloud.");
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('edit-mode').style.display = 'block';
+            }
         } catch(e) {
-            alert("Oops! This bouquet link seems to be broken.");
+            console.error(e);
+            alert("Error connecting to the delivery servers.");
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('edit-mode').style.display = 'block';
         }
     }
 };
@@ -38,7 +63,9 @@ function saveDraft() {
     const draft = {
         m: document.getElementById('custom-message').value,
         s: document.getElementById('sender-name').value,
-        r: document.getElementById('recipient-name').value
+        r: document.getElementById('recipient-name').value,
+        sp: document.getElementById('spotify-link').value,
+        d: document.getElementById('memory-date').value
     };
     localStorage.setItem('digiBouquetDraft', JSON.stringify(draft));
 }
@@ -49,6 +76,8 @@ function loadDraft() {
         document.getElementById('custom-message').value = draft.m || '';
         document.getElementById('sender-name').value = draft.s || '';
         document.getElementById('recipient-name').value = draft.r || '';
+        document.getElementById('spotify-link').value = draft.sp || ''; 
+        document.getElementById('memory-date').value = draft.d || ''; 
         document.getElementById('char-count').innerText = `${(draft.m || '').length}/300`;
     }
 }
@@ -68,16 +97,10 @@ function validateAndProceed() {
     if (!rec.value.trim()) { rec.classList.add('error-shake'); isValid = false; }
     if (!msg.value.trim()) { msg.classList.add('error-shake'); isValid = false; }
     
-    setTimeout(() => {
-        rec.classList.remove('error-shake');
-        msg.classList.remove('error-shake');
-    }, 400);
+    setTimeout(() => { rec.classList.remove('error-shake'); msg.classList.remove('error-shake'); }, 400);
 
-    if (isValid) {
-        goToStep(3);
-    } else {
-        alert("Please fill in the recipient's name and a sweet note! 🤍");
-    }
+    if (isValid) goToStep(3);
+    else alert("Please fill in the recipient's name and a sweet note! 🤍");
 }
 
 // --- CAROUSEL & THEMES ---
@@ -103,19 +126,54 @@ function changeTheme(btnElement, themeName) {
     document.body.className = `theme-${themeName}`;
 }
 
-// --- SHARING LOGIC ---
-function generateLink() {
+// --- SPOTIFY EXTRACTOR ---
+function extractSpotifyId(url) {
+    if (!url) return null;
+    const match = url.match(/track\/([a-zA-Z0-9]+)/);
+    return match ? match[1] : null;
+}
+
+// --- SHARING LOGIC (UPLOADS TO REALTIME DB) ---
+async function generateLink() {
+    const btn = document.getElementById('generate-btn');
+    const originalText = btn.innerText;
+    
     const msg = document.getElementById('custom-message').value;
     const sig = document.getElementById('sender-name').value;
     const rec = document.getElementById('recipient-name').value;
+    const spotLink = document.getElementById('spotify-link').value;
+    const memoryDate = document.getElementById('memory-date').value;
+    const spotId = extractSpotifyId(spotLink);
     
-    const payload = { i: currentSelection, m: msg, f: selectedFont, s: sig, t: selectedTheme, r: rec };
+    const payload = { 
+        i: currentSelection, m: msg, f: selectedFont, s: sig, t: selectedTheme, 
+        r: rec, sp: spotId, d: memoryDate, 
+        createdAt: firebase.database.ServerValue.TIMESTAMP 
+    };
     
-    const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
-    const link = `${window.location.origin}${window.location.pathname}?b=${encoded}`;
+    // Clean empty data to keep it tiny
+    Object.keys(payload).forEach(key => { if (!payload[key]) delete payload[key]; });
     
-    document.getElementById('share-link-container').classList.remove('hidden');
-    document.getElementById('share-link').value = link;
+    btn.innerText = "Sealing Envelope... ⏳";
+    btn.disabled = true;
+
+    try {
+        // Generate a new reference and set the data
+        const newRef = db.ref("bouquets").push();
+        await newRef.set(payload);
+        
+        // Use the new reference key for the short link
+        const link = `${window.location.origin}${window.location.pathname}?id=${newRef.key}`;
+        
+        document.getElementById('share-link-container').classList.remove('hidden');
+        document.getElementById('share-link').value = link;
+        btn.innerText = "Success! ✨";
+    } catch (error) {
+        console.error("Firebase Error: ", error);
+        alert("Failed to create link. Please make sure your Realtime Database Rules are set to true!");
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
 }
 
 function copyLink() {
@@ -147,9 +205,7 @@ function preloadImageAndRender(payload) {
         document.getElementById('envelope-screen').classList.remove('hidden');
         renderShared(payload);
     };
-    img.onerror = () => {
-        alert("Could not load the bouquet image.");
-    };
+    img.onerror = () => { alert("Could not load the bouquet image."); };
     img.src = `assets/${payload.i}.jpg`;
 }
 
@@ -157,13 +213,16 @@ function previewCard() {
     const msg = document.getElementById('custom-message').value;
     const sig = document.getElementById('sender-name').value;
     const rec = document.getElementById('recipient-name').value || "Someone Special";
+    const spotLink = document.getElementById('spotify-link').value;
+    const memoryDate = document.getElementById('memory-date').value;
+    const spotId = extractSpotifyId(spotLink);
     
     document.getElementById('edit-mode').classList.add('hidden');
     document.getElementById('envelope-screen').classList.remove('hidden');
     document.getElementById('reply-btn').classList.add('hidden');
     document.getElementById('close-preview-btn').classList.remove('hidden');
     
-    renderShared({ i: currentSelection, m: msg, f: selectedFont, s: sig, t: selectedTheme, r: rec });
+    renderShared({ i: currentSelection, m: msg, f: selectedFont, s: sig, t: selectedTheme, r: rec, sp: spotId, d: memoryDate });
 }
 
 function closePreview() {
@@ -171,6 +230,7 @@ function closePreview() {
     document.getElementById('envelope-screen').classList.add('hidden');
     document.getElementById('edit-mode').classList.remove('hidden');
     document.getElementById('magic-container').innerHTML = '';
+    document.getElementById('shared-spotify').src = ""; 
 }
 
 function renderShared(payload) {
@@ -189,12 +249,32 @@ function renderShared(payload) {
     
     const sigElement = document.getElementById('shared-signature');
     sigElement.innerText = payload.s ? payload.s : "";
+
+    // VINTAGE STAMP LOGIC
+    const stampEl = document.getElementById('vintage-stamp');
+    const stampDateEl = document.getElementById('stamp-date-text');
+    if (payload.d) {
+        const dateObj = new Date(payload.d);
+        const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        const formattedDate = `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+        stampDateEl.innerText = formattedDate;
+        stampEl.classList.remove('hidden');
+    } else {
+        stampEl.classList.add('hidden');
+    }
+
+    const spotifyIframe = document.getElementById('shared-spotify');
+    if (payload.sp && spotifyIframe) {
+        spotifyIframe.src = `https://open.spotify.com/embed/track/${payload.sp}?utm_source=generator`;
+        spotifyIframe.classList.remove('hidden');
+    } else if (spotifyIframe) {
+        spotifyIframe.classList.add('hidden');
+        spotifyIframe.src = "";
+    }
     
-    // Call the Auto-Scaler
     setTimeout(autoScaleText, 50);
 }
 
-// --- THE PICSART AUTO-SCALER ALGORITHM ---
 function autoScaleText() {
     const overlayBox = document.getElementById('text-overlay-box');
     const msgEl = document.getElementById('shared-message');
@@ -202,7 +282,7 @@ function autoScaleText() {
     
     if (!overlayBox || !msgEl) return;
 
-    let fontSize = 1.6; // Start smaller for that clean, stamped look
+    let fontSize = 1.6; 
     msgEl.style.fontSize = fontSize + 'rem';
     
     if (sigEl.innerText !== "") {
@@ -211,8 +291,6 @@ function autoScaleText() {
     }
     
     let attempts = 0; 
-
-    // Shrink gracefully until the text + signature fits perfectly within the wrapper overlay
     while (overlayBox.scrollHeight > overlayBox.clientHeight && fontSize > 0.6 && attempts < 50) {
         fontSize -= 0.05; 
         msgEl.style.fontSize = fontSize + 'rem';
@@ -230,7 +308,6 @@ function openEnvelope() {
         envelope.classList.add('hidden');
         envelope.style.opacity = '1'; 
         viewMode.classList.remove('hidden');
-        
         document.getElementById('skip-scratch-btn').classList.remove('hidden');
         
         const oldCanvas = document.getElementById('scratch-card');
@@ -241,17 +318,13 @@ function openEnvelope() {
         viewMode.insertBefore(newCanvas, viewMode.firstChild);
         
         document.getElementById('revealed-content').classList.remove('unlocked');
-        
         setTimeout(() => { initScratchCard(viewMode); }, 100);
     }, 800);
 }
 
-// --- THE SCRATCH ENGINE (THROTTLED PRO VERSION) ---
+// --- THE SCRATCH ENGINE ---
 let globalCheckReveal; 
-
-function forceReveal() {
-    if (globalCheckReveal) globalCheckReveal(true);
-}
+function forceReveal() { if (globalCheckReveal) globalCheckReveal(true); }
 
 function startRevealEffect() {
     const container = document.getElementById('magic-container');
@@ -322,7 +395,6 @@ function initScratchCard(container) {
         ctx.arc(x, y, brushRadius, 0, Math.PI * 2);
         ctx.fill();
         
-        // Performance Throttle
         const now = Date.now();
         if (now - lastCheckTime > 150) {
             checkReveal(false);
@@ -336,12 +408,10 @@ function initScratchCard(container) {
         if (isRevealed) return;
         
         let clearedPercentage = 0;
-
         if (!force) {
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const pixels = imageData.data;
             let clearPixels = 0;
-            
             for (let i = 3; i < pixels.length; i += 4) { if (pixels[i] < 50) clearPixels++; }
             clearedPercentage = (clearPixels / (pixels.length / 4)) * 100;
         }
@@ -358,12 +428,7 @@ function initScratchCard(container) {
         }
     }
 
-    function stopScratch() {
-        if(isDrawing) {
-            isDrawing = false;
-            checkReveal(false);
-        }
-    }
+    function stopScratch() { if(isDrawing) { isDrawing = false; checkReveal(false); } }
 
     canvas.addEventListener('mousedown', (e) => { isDrawing = true; scratch(e); });
     canvas.addEventListener('mousemove', scratch);

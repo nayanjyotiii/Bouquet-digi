@@ -40,20 +40,23 @@
                 <div class="bouquet-presentation">
                     <img id="shared-bouquet-img" src="" alt="Your Bouquet">
                     
+                    <div id="vintage-stamp" class="vintage-stamp hidden">
+                        <span class="stamp-text">EST.<br><span id="stamp-date-text"></span></span>
+                    </div>
+
                     <div id="text-overlay-box" class="text-overlay">
                         <p id="shared-message" class="message-text"></p>
                         <p id="shared-signature" class="signature-text"></p>
                     </div>
                 </div>
 
+                <iframe id="shared-spotify" src="" width="100%" height="80" frameborder="0" allowtransparency="true" allow="encrypted-media" class="hidden spotify-player"></iframe>
+
                 <button class="btn-primary" id="reply-btn" onclick="window.location.href=window.location.pathname">Create Your Own</button>
                 <button class="btn-secondary hidden" id="close-preview-btn" onclick="closePreview()">Close Preview</button>
             </div>
-            
             <button id="skip-scratch-btn" class="hidden btn-secondary skip-btn" onclick="forceReveal()">Skip Reveal 🪄</button>
         </div>
-
-
 
         <div id="edit-mode">
             <div id="step-1" class="step-container">
@@ -65,7 +68,7 @@
                         <img id="current-bouquet-img" src="assets/1.jpg" alt="Bouquet Selection">
                         <button class="btn-nav" onclick="nextBouquet()">❯</button>
                     </div>
-                    <p class="bouquet-label">Bouquet <span id="bouquet-counter">1</span> / 33</p>
+                    <p class="bouquet-label">Bouquet <span id="bouquet-counter">1</span> / 25</p>
                 </div>
                 <button class="btn-primary" onclick="goToStep(2)">Next: Design Your Note 🖋️</button>
             </div>
@@ -75,11 +78,18 @@
                 <p class="subtitle">Customize the presentation.</p>
                 <div class="message-box">
                     <input type="text" id="recipient-name" class="signature-input" placeholder="Recipient's Name (e.g., Sarah)" oninput="saveDraft()">
+                    
                     <div class="textarea-wrapper">
                         <textarea id="custom-message" placeholder="Write something beautiful..." maxlength="300" oninput="saveDraft()"></textarea>
                         <span class="char-counter" id="char-count">0/300</span>
                     </div>
+
                     <input type="text" id="sender-name" class="signature-input" placeholder="Sign your name (e.g., - Love, Alex)" oninput="saveDraft()">
+                    
+                    <input type="url" id="spotify-link" class="signature-input" placeholder="Spotify Song Link 🎵 (Optional)" style="text-align: left;" oninput="saveDraft()">
+                    
+                    <p class="section-label">Memory Date (For the vintage stamp):</p>
+                    <input type="date" id="memory-date" class="signature-input" oninput="saveDraft()">
                     
                     <p class="section-label">Typography:</p>
                     <div class="font-picker">
@@ -109,16 +119,20 @@
                 <h1>3. Ready to Send</h1>
                 <p class="subtitle">Your digital envelope is sealed.</p>
                 <button class="btn-secondary" style="margin-bottom: 15px;" onclick="previewCard()">👀 Test The Experience</button>
-                <button class="btn-primary" onclick="generateLink()">Generate Unique Link 🔗</button>
+                <button class="btn-primary" id="generate-btn" onclick="generateLink()">Generate Unique Link 🔗</button>
                 <div id="share-link-container" class="hidden share-box">
                     <input type="text" id="share-link" readonly>
                     <button class="btn-secondary copy-btn" onclick="copyLink()">Copy Link</button>
-                    <p style="margin-top: 15px; font-size: 0.9rem; color: #7A7A7A;">Text this link to them safely!</p>
+                    <p style="margin-top: 15px; font-size: 0.9rem; color: #7A7A7A;">Text this short link safely!</p>
                 </div>
                 <button class="btn-secondary" style="margin-top: 20px; border: none;" onclick="goToStep(2)">Wait, edit note</button>
             </div>
         </div>
     </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+    
     <script src="script.js"></script>
 </body>
 </html>
