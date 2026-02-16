@@ -1,5 +1,5 @@
 // --- STATE & CONFIG ---
-const TOTAL_BOUQUETS = 25; 
+const TOTAL_BOUQUETS = 33; 
 let currentSelection = 1;
 let selectedFont = 'Alex Brush'; 
 let selectedTheme = 'ivory';
