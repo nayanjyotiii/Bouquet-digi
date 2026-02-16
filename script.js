@@ -1,4 +1,4 @@
-// --- FIREBASE CONFIGURATION (REALTIME DB) ---
+
 const firebaseConfig = {
     apiKey: "AIzaSyDa2YAkgDSAW3CtYswRKrnt6e01g6PlGZw",
     authDomain: "nayanarchive-854cc.firebaseapp.com",
@@ -9,17 +9,17 @@ const firebaseConfig = {
     appId: "1:2058736416:web:afcdf732ced703d78a7d45"
 };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database(); // Changed to Realtime Database
 
-// --- STATE & CONFIG ---
-const TOTAL_BOUQUETS = 25; 
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database(); 
+
+
+const TOTAL_BOUQUETS = 33; 
 let currentSelection = 1;
 let selectedFont = 'Alex Brush'; 
 let selectedTheme = 'ivory';
 
-// --- INITIALIZATION (LOADS FROM CLOUD) ---
+
 window.onload = async () => {
     loadDraft(); 
     
@@ -38,9 +38,7 @@ window.onload = async () => {
         document.getElementById('loading-screen').classList.remove('hidden'); 
         
         try {
-            // Fetch from Realtime Database
             const snapshot = await db.ref("bouquets/" + docId).get();
-            
             if (snapshot.exists()) {
                 const payload = snapshot.val();
                 preloadImageAndRender(payload); 
@@ -58,13 +56,12 @@ window.onload = async () => {
     }
 };
 
-// --- AUTO-SAVE (LOCAL STORAGE) ---
+
 function saveDraft() {
     const draft = {
         m: document.getElementById('custom-message').value,
         s: document.getElementById('sender-name').value,
         r: document.getElementById('recipient-name').value,
-        sp: document.getElementById('spotify-link').value,
         d: document.getElementById('memory-date').value
     };
     localStorage.setItem('digiBouquetDraft', JSON.stringify(draft));
@@ -76,13 +73,12 @@ function loadDraft() {
         document.getElementById('custom-message').value = draft.m || '';
         document.getElementById('sender-name').value = draft.s || '';
         document.getElementById('recipient-name').value = draft.r || '';
-        document.getElementById('spotify-link').value = draft.sp || ''; 
         document.getElementById('memory-date').value = draft.d || ''; 
         document.getElementById('char-count').innerText = `${(draft.m || '').length}/300`;
     }
 }
 
-// --- NAVIGATION & VALIDATION ---
+
 function goToStep(stepNumber) {
     document.querySelectorAll('.step-container').forEach(el => el.classList.add('hidden'));
     document.getElementById(`step-${stepNumber}`).classList.remove('hidden');
@@ -103,7 +99,7 @@ function validateAndProceed() {
     else alert("Please fill in the recipient's name and a sweet note! 🤍");
 }
 
-// --- CAROUSEL & THEMES ---
+
 function updateCarousel() {
     document.getElementById('current-bouquet-img').src = `assets/${currentSelection}.jpg`;
     document.getElementById('bouquet-counter').innerText = currentSelection;
@@ -126,14 +122,7 @@ function changeTheme(btnElement, themeName) {
     document.body.className = `theme-${themeName}`;
 }
 
-// --- SPOTIFY EXTRACTOR ---
-function extractSpotifyId(url) {
-    if (!url) return null;
-    const match = url.match(/track\/([a-zA-Z0-9]+)/);
-    return match ? match[1] : null;
-}
 
-// --- SHARING LOGIC (UPLOADS TO REALTIME DB) ---
 async function generateLink() {
     const btn = document.getElementById('generate-btn');
     const originalText = btn.innerText;
@@ -141,28 +130,24 @@ async function generateLink() {
     const msg = document.getElementById('custom-message').value;
     const sig = document.getElementById('sender-name').value;
     const rec = document.getElementById('recipient-name').value;
-    const spotLink = document.getElementById('spotify-link').value;
     const memoryDate = document.getElementById('memory-date').value;
-    const spotId = extractSpotifyId(spotLink);
     
     const payload = { 
         i: currentSelection, m: msg, f: selectedFont, s: sig, t: selectedTheme, 
-        r: rec, sp: spotId, d: memoryDate, 
+        r: rec, d: memoryDate, 
         createdAt: firebase.database.ServerValue.TIMESTAMP 
     };
     
-    // Clean empty data to keep it tiny
+
     Object.keys(payload).forEach(key => { if (!payload[key]) delete payload[key]; });
     
     btn.innerText = "Sealing Envelope... ⏳";
     btn.disabled = true;
 
     try {
-        // Generate a new reference and set the data
         const newRef = db.ref("bouquets").push();
         await newRef.set(payload);
         
-        // Use the new reference key for the short link
         const link = `${window.location.origin}${window.location.pathname}?id=${newRef.key}`;
         
         document.getElementById('share-link-container').classList.remove('hidden');
@@ -213,16 +198,14 @@ function previewCard() {
     const msg = document.getElementById('custom-message').value;
     const sig = document.getElementById('sender-name').value;
     const rec = document.getElementById('recipient-name').value || "Someone Special";
-    const spotLink = document.getElementById('spotify-link').value;
     const memoryDate = document.getElementById('memory-date').value;
-    const spotId = extractSpotifyId(spotLink);
     
     document.getElementById('edit-mode').classList.add('hidden');
     document.getElementById('envelope-screen').classList.remove('hidden');
     document.getElementById('reply-btn').classList.add('hidden');
     document.getElementById('close-preview-btn').classList.remove('hidden');
     
-    renderShared({ i: currentSelection, m: msg, f: selectedFont, s: sig, t: selectedTheme, r: rec, sp: spotId, d: memoryDate });
+    renderShared({ i: currentSelection, m: msg, f: selectedFont, s: sig, t: selectedTheme, r: rec, d: memoryDate });
 }
 
 function closePreview() {
@@ -230,7 +213,6 @@ function closePreview() {
     document.getElementById('envelope-screen').classList.add('hidden');
     document.getElementById('edit-mode').classList.remove('hidden');
     document.getElementById('magic-container').innerHTML = '';
-    document.getElementById('shared-spotify').src = ""; 
 }
 
 function renderShared(payload) {
@@ -261,15 +243,6 @@ function renderShared(payload) {
         stampEl.classList.remove('hidden');
     } else {
         stampEl.classList.add('hidden');
-    }
-
-    const spotifyIframe = document.getElementById('shared-spotify');
-    if (payload.sp && spotifyIframe) {
-        spotifyIframe.src = `https://open.spotify.com/embed/track/${payload.sp}?utm_source=generator`;
-        spotifyIframe.classList.remove('hidden');
-    } else if (spotifyIframe) {
-        spotifyIframe.classList.add('hidden');
-        spotifyIframe.src = "";
     }
     
     setTimeout(autoScaleText, 50);

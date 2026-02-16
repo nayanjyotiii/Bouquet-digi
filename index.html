@@ -50,10 +50,8 @@
                     </div>
                 </div>
 
-                <iframe id="shared-spotify" src="" width="100%" height="80" frameborder="0" allowtransparency="true" allow="encrypted-media" class="hidden spotify-player"></iframe>
-
-                <button class="btn-primary" id="reply-btn" onclick="window.location.href=window.location.pathname">Create Your Own</button>
-                <button class="btn-secondary hidden" id="close-preview-btn" onclick="closePreview()">Close Preview</button>
+                <button class="btn-primary" id="reply-btn" onclick="window.location.href=window.location.pathname">Create Your Own 💐</button>
+                <button class="btn-secondary hidden" id="close-preview-btn" onclick="closePreview()">⬅ Back</button>
             </div>
             <button id="skip-scratch-btn" class="hidden btn-secondary skip-btn" onclick="forceReveal()">Skip Reveal 🪄</button>
         </div>
@@ -68,7 +66,7 @@
                         <img id="current-bouquet-img" src="assets/1.jpg" alt="Bouquet Selection">
                         <button class="btn-nav" onclick="nextBouquet()">❯</button>
                     </div>
-                    <p class="bouquet-label">Bouquet <span id="bouquet-counter">1</span> / 25</p>
+                    <p class="bouquet-label">Bouquet <span id="bouquet-counter">1</span> / 33</p>
                 </div>
                 <button class="btn-primary" onclick="goToStep(2)">Next: Design Your Note 🖋️</button>
             </div>
@@ -85,8 +83,6 @@
                     </div>
 
                     <input type="text" id="sender-name" class="signature-input" placeholder="Sign your name (e.g., - Love, Alex)" oninput="saveDraft()">
-                    
-                    <input type="url" id="spotify-link" class="signature-input" placeholder="Spotify Song Link 🎵 (Optional)" style="text-align: left;" oninput="saveDraft()">
                     
                     <p class="section-label">Memory Date (For the vintage stamp):</p>
                     <input type="date" id="memory-date" class="signature-input" oninput="saveDraft()">
